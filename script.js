@@ -4,7 +4,6 @@ let countBlock = 15;
 let sizeBlock = 40;
 let CB = 0.1;
 let game = false;
-let firstClick = true;
 let minesPlaced = false;
 let startTime;
 let timerInterval;
@@ -32,9 +31,9 @@ function placeMines(excludedH, excludedW) {
                 continue;
             }
             if (Math.random() < CB) {
-                wline.push({ number: 9, show: 0 });
+                wline.push({ number: 9, show: 0, flagged: false });
             } else {
-                wline.push({ number: 0, show: 0 });
+                wline.push({ number: 0, show: 0, flagged: false });
             }
         }
         blocks.push(wline);
@@ -77,8 +76,11 @@ function draw() {
                 if (blocks[h][w].number) {
                     ctx.font = '32px serif';
                     ctx.fillStyle = '#ddd';
-                    ctx.fillText(blocks[h][w].number, w * sizeBlock, (h + 1) * sizeBlock - 10);
+                    ctx.fillText(blocks[h][w].number, w * sizeBlock + sizeBlock / 3, (h + 1) * sizeBlock - sizeBlock / 3);
                 }
+            } else if (blocks[h][w].flagged) { // Блок для рисования флажка на закрытых ячейках с установленным флажком
+                ctx.fillStyle = '#00f';
+                ctx.fillRect(w * sizeBlock + sizeBlock / 4, h * sizeBlock + sizeBlock / 4, sizeBlock / 2, sizeBlock / 2);
             }
         }
     }
@@ -102,6 +104,10 @@ let rect = canvas.getBoundingClientRect();
 let offsetX = rect.left;
 let offsetY = rect.top;
 
+canvas.addEventListener('contextmenu', function (event) {
+    event.preventDefault();
+});
+
 canvas.addEventListener('mousedown', function (event) {
     let h = Math.floor((event.clientY - offsetY) / sizeBlock);
     let w = Math.floor((event.clientX - offsetX) / sizeBlock);
@@ -110,20 +116,32 @@ canvas.addEventListener('mousedown', function (event) {
         startGame(h, w);
     }
 
-    if (event.button === 0) {
-        if (blocks[h][w].number == 9) {
-            console.log('lose');
-            showAllMines();
-            game = false;
-            alert("Вы проиграли");
-        } else {
-            showBlock(h, w);
+    if (event.button === 0) { // Левая кнопка мыши
+        if (!blocks[h][w].show && !blocks[h][w].flagged) {
+            if (blocks[h][w].number == 9) {
+                console.log('lose');
+                showAllMines();
+                game = false;
+                alert("Вы проиграли");
+            } else {
+                showBlock(h, w);
+            }
         }
-    } else if (event.button === 2) {
-        event.preventDefault();
+    } else if (event.button === 2) { // Правая кнопка мыши
+        event.preventDefault(); // Предотвращаем стандартное контекстное меню браузера
         toggleFlag(h, w);
     }
+
+    if (checkWin()) {
+        alert('Вы нашли все мины!!!');
+        game = false;
+    }
 });
+
+function toggleFlag(h, w) {
+    blocks[h][w].flagged = !blocks[h][w].flagged;
+    draw(); // Перерисовываем игровое поле после установки или снятия флажка
+}
 
 function startGame(h, w) {
     if (!minesPlaced) {
@@ -160,6 +178,17 @@ function toggleFlag(h, w) {
     }
 }
 
+function checkWin() {
+    for (let h = 0; h < countBlock; h++) {
+        for (let w = 0; w < countBlock; w++) {
+            if (blocks[h][w].number == 9 && !blocks[h][w].flagged) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 function showAllMines() {
     for (let h = 0; h < countBlock; h++) {
         for (let w = 0; w < countBlock; w++) {
@@ -178,44 +207,3 @@ function startTimer() {
         document.getElementById("timer").innerText = minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
     }, 1000);
 }
-
-function resetGame() {
-    clearInterval(timerInterval);
-    blocks = [];
-    minesPlaced = false;
-    game = false;
-    firstClick = true;
-    draw();
-    document.getElementById("timer").innerText = "0:00";
-    document.getElementById('pauseResumeButton').textContent = 'Пауза'; // Возвращаем текст кнопки к 'Пауза'
-}
-
-function pauseGame() {
-    if (game) {
-        clearInterval(timerInterval);
-        game = false;
-        pausedTime = Date.now();
-        document.getElementById('pauseResumeButton').textContent = 'Продолжить'; // Изменяем текст кнопки на 'Продолжить'
-    }
-}
-
-function resumeGame() {
-    if (!game) {
-        game = true;
-        startTime += Date.now() - pausedTime;
-        startTimer();
-        document.getElementById('pauseResumeButton').textContent = 'Пауза'; // Изменяем текст кнопки на 'Пауза'
-    }
-}
-
-document.getElementById('resetButton').addEventListener('click', function () {
-    resetGame();
-});
-
-document.getElementById('pauseResumeButton').addEventListener('click', function () {
-    if (game) {
-        pauseGame();
-    } else {
-        resumeGame();
-    }
-});
